@@ -192,7 +192,8 @@ export const zhCN = {
   'help.option.wiki.retries': '每个请求的最大 LLM 重试次数（默认：3）',
   'help.option.wiki.gist': '生成后发布 Wiki 为公开 GitHub Gist',
   'help.option.wiki.review': '分组后停止，以便在生成页面前审查模块结构',
-  'help.option.wiki.lang': '生成文档的输出语言（如 english、chinese、spanish、japanese）',
+  'help.option.wiki.lang':
+    '生成文档的输出语言（如 english、chinese、zh-CN、中文、spanish、japanese）',
   'help.option.publish.id': '覆盖注册表 id（默认使用 origin remote）',
   'help.option.repo.targetOmitOne': '目标仓库（仅有一个已索引仓库时可省略）',
   'help.option.query.context': '用于提升排序质量的任务上下文',

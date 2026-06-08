@@ -177,6 +177,7 @@ gitnexus clean                   # Delete index for current repo
 gitnexus clean --all --force     # Delete all indexes
 gitnexus wiki [path]             # Generate LLM-powered docs from knowledge graph
 gitnexus wiki --model <model>    # Wiki with custom LLM model (default: gpt-4o-mini)
+gitnexus wiki --lang zh-CN       # Generate a Simplified Chinese wiki
 
 # Direct graph queries — the same tools the MCP server exposes, no MCP daemon needed
 gitnexus query "<concept>"                                    # Process-grouped hybrid search

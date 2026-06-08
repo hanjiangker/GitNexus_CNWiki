@@ -78,6 +78,9 @@ export const PARENT_USER_PROMPT = `Write documentation for the **{{MODULE_NAME}}
 
 {{CHILDREN_DOCS}}
 
+Use these exact links when linking to child pages:
+{{CHILD_LINKS}}
+
 Cross-module calls: {{CROSS_MODULE_CALLS}}
 Shared execution flows: {{CROSS_PROCESSES}}
 
@@ -107,6 +110,9 @@ export const OVERVIEW_USER_PROMPT = `Write the overview page for this repository
 ## Module Summaries
 
 {{MODULE_SUMMARIES}}
+
+Use these exact links when linking to module pages:
+{{MODULE_LINKS}}
 
 ## Reference Data (for accuracy — do not reproduce verbatim)
 

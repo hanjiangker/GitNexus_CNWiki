@@ -246,6 +246,7 @@ gitnexus clean --all --force     # Delete all indexes
 gitnexus wiki [path]             # Generate repository wiki from knowledge graph
 gitnexus wiki --model <model>    # Wiki with custom LLM model (default: gpt-4o-mini)
 gitnexus wiki --base-url <url>   # Wiki with custom LLM API base URL
+gitnexus wiki --lang zh-CN       # Generate a Simplified Chinese wiki
 gitnexus publish                 # Notify the understand-quickly registry (opt-in, see below)
 
 # Repository groups (multi-repo / monorepo service tracking)
@@ -838,10 +839,21 @@ gitnexus wiki --timeout <seconds> # LLM request timeout in seconds (default: dis
 gitnexus wiki --retries <n>      # Max LLM retry attempts per request (default: 3)
 
 # Change the language generation for wiki
-gitnexus wiki --lang <lang>  # Output language for generated documentation (e.g. english, chinese, spanish, japanese)
+gitnexus wiki --lang <lang>  # Output language for generated documentation (e.g. english, chinese, zh-CN, 中文, spanish, japanese)
+
+# Generate a Simplified Chinese wiki
+gitnexus wiki --lang zh-CN --force
+gitnexus wiki --lang 中文 --force
 ```
 
 The wiki generator reads the indexed graph structure, groups files into modules via LLM, generates per-module documentation pages, and creates an overview page — all with cross-references to the knowledge graph.
+
+When Chinese wiki generation is enabled, GitNexus localizes visible documentation text
+such as module display names, page titles, prose, and Mermaid labels. Source-level
+terms remain unchanged, including function names, class names, file paths, package
+names, CLI commands, configuration keys, formulas, equations, and Markdown link
+targets. Page slugs remain stable ASCII by default for portable links and
+incremental updates.
 
 ---
 

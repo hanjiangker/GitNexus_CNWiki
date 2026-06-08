@@ -206,7 +206,7 @@ export const en = {
   'help.option.wiki.review':
     'Stop after grouping to review module structure before generating pages',
   'help.option.wiki.lang':
-    'Output language for generated documentation (e.g. english, chinese, spanish, japanese)',
+    'Output language for generated documentation (e.g. english, chinese, zh-CN, 中文, spanish, japanese)',
   'help.option.publish.id': 'Override the registry id (defaults to the origin remote)',
   'help.option.repo.targetOmitOne': 'Target repository (omit if only one indexed)',
   'help.option.query.context': 'Task context to improve ranking',

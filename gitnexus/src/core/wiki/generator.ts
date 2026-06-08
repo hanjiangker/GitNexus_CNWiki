@@ -106,6 +106,7 @@ export interface WikiRunResult {
 const DEFAULT_MAX_TOKENS_PER_MODULE = 30_000;
 const GROUPING_TOKEN_BUDGET = 100_000;
 const WIKI_DIR = 'wiki';
+const CHINESE_LANG = 'zh-CN';
 
 // ─── Generator Class ──────────────────────────────────────────────────
 
@@ -197,6 +198,10 @@ export class WikiGenerator {
       .replace(/[\x00-\x1F\x7F]/g, '')
       .trim()
       .slice(0, 50);
+    const normalized = lang.toLowerCase();
+    if (['chinese', 'zh', 'zh-cn', 'zh_cn', '中文', '简体中文'].includes(normalized)) {
+      return CHINESE_LANG;
+    }
     return /^[a-zA-Z -]+$/.test(lang) ? lang : '';
   }
 
@@ -206,7 +211,8 @@ export class WikiGenerator {
   private buildSystemPrompt(base: string): string {
     const lang = this.effectiveLang();
     if (!lang) return base;
-    return `${base}\n\nIMPORTANT: Write ALL documentation content in ${lang}. This includes prose, code comments in examples, and diagram labels. Note: page titles (H1 headings) are generated separately and will remain in English.`;
+    const displayLang = lang === CHINESE_LANG ? 'Simplified Chinese' : lang;
+    return `${base}\n\nIMPORTANT: Write documentation prose, section headings, page titles, and Mermaid diagram labels in ${displayLang}. Preserve code identifiers, function names, class names, file paths, package names, CLI commands, import paths, configuration keys, formulas, equations, and Markdown link targets exactly as they appear. Do not translate real API names or source code.`;
   }
 
   /**
@@ -525,6 +531,8 @@ export class WikiGenerator {
       tree.push(node);
     }
 
+    await this.localizeModuleTreeNames(tree);
+
     // Save immutable snapshot for resumability
     await fs.writeFile(snapshotPath, JSON.stringify(tree, null, 2), 'utf-8');
     this.onProgress('grouping', 28, `Created ${tree.length} modules`);
@@ -582,6 +590,77 @@ export class WikiGenerator {
     }
 
     return Object.keys(merged).length > 0 ? merged : this.fallbackGrouping(files);
+  }
+
+  private async localizeModuleTreeNames(tree: ModuleTreeNode[]): Promise<void> {
+    if (this.effectiveLang() !== CHINESE_LANG) return;
+
+    const nodes = this.collectModuleNodes(tree);
+    if (nodes.length === 0) return;
+
+    const modules = nodes.map((node) => ({
+      slug: node.slug,
+      currentName: node.name,
+      files: node.files.slice(0, 8),
+    }));
+
+    const prompt = `Translate these documentation module display names into concise Simplified Chinese.
+
+Rules:
+- Return ONLY a JSON object mapping each slug to its Chinese display name.
+- Do not translate slugs, file paths, function names, class names, package names, or code identifiers.
+- Keep names concise and developer-facing.
+- Use stable terminology; avoid decorative wording.
+
+Modules:
+${JSON.stringify(modules, null, 2)}`;
+
+    try {
+      this.onProgress('grouping', 27, 'Localizing module names...');
+      const response = await this.invokeLLM(
+        prompt,
+        'You translate documentation module display names into Simplified Chinese. Return strict JSON only.',
+        this.streamOpts('Localizing module names', 27, 1),
+      );
+      const localized = this.parseLocalizedModuleNames(response.content);
+      for (const node of nodes) {
+        const name = localized[node.slug]?.trim();
+        if (name) node.name = name;
+      }
+    } catch {
+      // Localization is best-effort; keep stable English names if it fails.
+    }
+  }
+
+  private collectModuleNodes(tree: ModuleTreeNode[]): ModuleTreeNode[] {
+    const nodes: ModuleTreeNode[] = [];
+    for (const node of tree) {
+      nodes.push(node);
+      if (node.children) nodes.push(...this.collectModuleNodes(node.children));
+    }
+    return nodes;
+  }
+
+  private parseLocalizedModuleNames(content: string): Record<string, string> {
+    let jsonStr = content.trim();
+    const fenceMatch = jsonStr.match(/```(?:json)?\s*\n?([\s\S]*?)\n?```/);
+    if (fenceMatch) {
+      jsonStr = fenceMatch[1].trim();
+    }
+
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {};
+      const result: Record<string, string> = {};
+      for (const [slug, name] of Object.entries(parsed)) {
+        if (typeof name === 'string') {
+          result[slug] = name;
+        }
+      }
+      return result;
+    } catch {
+      return {};
+    }
   }
 
   /**
@@ -872,8 +951,7 @@ export class WikiGenerator {
       this.streamOpts(node.name),
     );
 
-    // H1 uses the English module name (stable slug source); body is LLM-translated.
-    const pageContent = sanitizeMermaidMarkdown(`# ${node.name}\n\n${response.content}`);
+    const pageContent = this.composePageContent(node.name, response.content);
     await fs.writeFile(path.join(this.wikiDir, `${node.slug}.md`), pageContent, 'utf-8');
   }
 
@@ -907,6 +985,7 @@ export class WikiGenerator {
     const prompt = fillTemplate(PARENT_USER_PROMPT, {
       MODULE_NAME: node.name,
       CHILDREN_DOCS: childDocs.join('\n\n'),
+      CHILD_LINKS: this.formatNodeLinks(node.children),
       CROSS_MODULE_CALLS: formatCallEdges(crossCalls),
       CROSS_PROCESSES: formatProcesses(processes),
     });
@@ -917,7 +996,7 @@ export class WikiGenerator {
       this.streamOpts(node.name),
     );
 
-    const pageContent = sanitizeMermaidMarkdown(`# ${node.name}\n\n${response.content}`);
+    const pageContent = this.composePageContent(node.name, response.content);
     await fs.writeFile(path.join(this.wikiDir, `${node.slug}.md`), pageContent, 'utf-8');
   }
 
@@ -957,6 +1036,7 @@ export class WikiGenerator {
     const prompt = fillTemplate(OVERVIEW_USER_PROMPT, {
       PROJECT_INFO: projectInfo,
       MODULE_SUMMARIES: moduleSummaries.join('\n\n'),
+      MODULE_LINKS: this.formatNodeLinks(moduleTree),
       MODULE_EDGES: edgesText,
       TOP_PROCESSES: formatProcesses(topProcesses),
     });
@@ -967,8 +1047,9 @@ export class WikiGenerator {
       this.streamOpts('Generating overview', 88),
     );
 
-    const pageContent = sanitizeMermaidMarkdown(
-      `# ${path.basename(this.repoPath)} — Wiki\n\n${response.content}`,
+    const pageContent = this.composePageContent(
+      `${path.basename(this.repoPath)} — Wiki`,
+      response.content,
     );
     await fs.writeFile(path.join(this.wikiDir, 'overview.md'), pageContent, 'utf-8');
   }
@@ -1056,8 +1137,7 @@ export class WikiGenerator {
 
     const affectedNodes: ModuleTreeNode[] = [];
     for (const mod of affectedArray) {
-      const modSlug = this.slugify(mod);
-      const node = this.findNodeBySlug(moduleTree, modSlug);
+      const node = this.findNodeByNameOrSlug(moduleTree, mod);
       if (node) {
         try {
           await fs.unlink(path.join(this.wikiDir, `${node.slug}.md`));
@@ -1181,6 +1261,23 @@ export class WikiGenerator {
     const maxChars = maxTokens * 4;
     if (source.length <= maxChars) return source;
     return source.slice(0, maxChars) + '\n\n... (source truncated for context window limits)';
+  }
+
+  private composePageContent(fallbackTitle: string, content: string): string {
+    const cleaned = sanitizeMermaidMarkdown(content.trim());
+    const h1Match = cleaned.match(/^#\s+(.+?)[ \t]*\n(?:\n)?/);
+    if (!h1Match) {
+      return sanitizeMermaidMarkdown(`# ${fallbackTitle}\n\n${cleaned}`);
+    }
+
+    const title = h1Match[1].trim() || fallbackTitle;
+    const body = cleaned.slice(h1Match[0].length).trimStart();
+    return sanitizeMermaidMarkdown(`# ${title}\n\n${body}`);
+  }
+
+  private formatNodeLinks(nodes: ModuleTreeNode[]): string {
+    if (nodes.length === 0) return '(none)';
+    return nodes.map((node) => `- ${node.name}: [${node.name}](${node.slug}.md)`).join('\n');
   }
 
   private async estimateModuleTokens(filePaths: string[]): Promise<number> {
@@ -1358,6 +1455,18 @@ export class WikiGenerator {
       }
     }
     return null;
+  }
+
+  private findNodeByNameOrSlug(tree: ModuleTreeNode[], nameOrSlug: string): ModuleTreeNode | null {
+    for (const node of tree) {
+      if (node.name === nameOrSlug || node.slug === nameOrSlug) return node;
+      if (node.children) {
+        const found = this.findNodeByNameOrSlug(node.children, nameOrSlug);
+        if (found) return found;
+      }
+    }
+
+    return this.findNodeBySlug(tree, this.slugify(nameOrSlug));
   }
 
   private slugify(name: string): string {
