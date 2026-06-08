@@ -197,6 +197,23 @@ gitnexus group query <name> <q>  # Search execution flows across all repos in a 
 gitnexus group status <name>     # Check staleness of repos in a group
 ```
 
+### Simplified Chinese Wiki
+
+Generate a Chinese wiki with any of these language aliases:
+
+```bash
+gitnexus wiki --lang zh-CN --force
+gitnexus wiki --lang 中文 --force
+gitnexus wiki --lang chinese --force
+```
+
+Chinese wiki generation localizes visible documentation text, including module
+display names, page titles, prose, section headings, Mermaid labels, and the
+HTML viewer UI. Source-level terms remain unchanged, including function names,
+class names, file paths, package names, CLI commands, configuration keys,
+formulas, equations, and Markdown link targets. Page slugs remain stable ASCII
+for portable links and incremental updates.
+
 ## Remote Embeddings
 
 Set these env vars to use a remote OpenAI-compatible `/v1/embeddings` endpoint instead of the local model:

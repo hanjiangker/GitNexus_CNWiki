@@ -844,9 +844,13 @@ gitnexus wiki --lang <lang>  # Output language for generated documentation (e.g.
 # Generate a Simplified Chinese wiki
 gitnexus wiki --lang zh-CN --force
 gitnexus wiki --lang 中文 --force
+gitnexus wiki --lang chinese --force
 ```
 
 The wiki generator reads the indexed graph structure, groups files into modules via LLM, generates per-module documentation pages, and creates an overview page — all with cross-references to the knowledge graph.
+
+GitNexus recognizes `zh-CN`, `zh`, `中文`, `简体中文`, and `chinese` as
+Simplified Chinese wiki aliases.
 
 When Chinese wiki generation is enabled, GitNexus localizes visible documentation text
 such as module display names, page titles, prose, and Mermaid labels. Source-level
